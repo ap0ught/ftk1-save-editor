@@ -5,17 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FTK1 Save Editor</title>
 <style>
-body{font-family:system-ui,Arial,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;line-height:1.6;color:#222;}
-code{background:#f2f2f2;padding:2px 6px;border-radius:4px;}
-pre{background:#f7f7f7;padding:12px;border-radius:8px;overflow:auto;}
-a{color:#4f3f67;}
+body{font-family:system-ui,Arial,sans-serif;max-width:960px;margin:40px auto;padding:0 24px;line-height:1.6;background:#15111c;color:#e9e1f5;}
+a{color:#b9a6ff;}
+.hero{background:#231c2f;border:1px solid #4f3f67;border-radius:12px;padding:24px;margin-bottom:20px;}
+.panel{background:rgba(33,26,46,.92);border:1px solid #4f3f67;border-radius:12px;padding:18px;margin-bottom:16px;}
+code{background:#1b1426;color:#efe7ff;padding:2px 6px;border-radius:4px;}
+pre{background:#1b1426;color:#efe7ff;padding:12px;border-radius:8px;overflow:auto;border:1px solid #4f3f67;}
+h1,h2,h3{color:#ffffff;}
+ul li{margin:6px 0;}
+a.btn{display:inline-block;padding:8px 14px;background:#3b2b58;color:#fff;text-decoration:none;border-radius:8px;border:1px solid #7b67a0;}
+a.btn:hover{background:#4f3f67;}
 </style>
 </head>
 <body>
-<h1>FTK1 Save Editor</h1>
+<div class="hero"><h1>FTK1 Save Editor</h1>
 <p>A local Flask web app for editing <em>For The King</em> (FTK1) save files (<code>.run</code>) and <code>player.db</code>.</p>
 
-<h2>Features</h2>
+</div>
+<div class="panel"><h2>Features</h2>
 <ul>
 <li>Unpack and repack gzip UTF-16 JSON <code>.run</code> saves.</li>
 <li>Edit game info, character vitals, augmented stats, status, and inventory.</li>
@@ -25,7 +32,8 @@ a{color:#4f3f67;}
 <li>Backup on overwrite (<code>.bak</code>).</li>
 </ul>
 
-<h2>Run locally</h2>
+</div>
+<div class="panel"><h2>Run locally</h2>
 <pre><code>git clone https://github.com/ap0ught/ftk1-save-editor.git
 cd ftk1-save-editor
 python -m pip install -r requirements.txt
@@ -34,9 +42,11 @@ python app.py</code></pre>
 
 <p><strong>Note:</strong> this is a Python/Flask backend tool, so it runs locally. GitHub Pages hosts the static documentation; it cannot run the Python app itself.</p>
 
-<h2>Verify an edited save</h2>
+</div>
+<div class="panel"><h2>Verify an edited save</h2>
 <pre><code>python3 verify_save.py /path/to/edited.run</code></pre>
 
-<p><a href="https://github.com/ap0ught/ftk1-save-editor">View the repository on GitHub</a></p>
+<p><a href="https://github.com/ap0ught/ftk1-save-editor" class="btn">View repository on GitHub</a></p>
+</div>
 </body>
 </html>
