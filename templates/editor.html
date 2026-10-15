@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FTK1 Save Editor</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<style>
+body{background:#15111c;color:#e9e1f5;padding:14px;}
+.topbar{background:#231c2f;border:1px solid #4f3f67;border-radius:10px;padding:12px;margin-bottom:12px;}
+.panel{background:rgba(33,26,46,.92);border:1px solid #4f3f67;border-radius:12px;padding:14px;margin-bottom:12px;}
+.slot{width:86px;height:86px;border:2px solid #7b67a0;border-radius:8px;background:#241a31;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:11px;position:relative;overflow:hidden;}
+.slot .name{word-break:break-word;line-height:1.1;}
+.statgrid .row{border-bottom:1px solid #3a2f4f;padding:4px 0;}
+code.id{color:#b9a6ff;font-size:12px;}
+input.form-control,textarea.code{background:#1b1426;color:#efe7ff;border-color:#4f3f67;}
+label,.form-label,.text-muted{color:#ffffff !important; font-weight:600;}
+.btn{border-radius:8px;}
+.nav-tabs .nav-link{color:#d7c9f2;}
+.nav-tabs .nav-link.active{background:#2a1f3a;color:#fff;border-color:#4f3f67;}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#3b2b58;font-size:12px;}
+</style>
+</head>
+<body class="container-fluid">
+<div class="topbar d-flex flex-wrap align-items-center gap-2">
+  <span class="h4 mb-0">FTK1 Save Editor</span>
+  <span class="pill ms-2">{{filename}}</span>
+  <select id="playerSel" class="form-select form-select-sm ms-3" style="width:260px" onchange="loadPlayer(this.value)"></select>
+  <button class="btn btn-success btn-sm" onclick="exportSave()">Download .run</button>
+  <button class="btn btn-warning btn-sm" onclick="saveToPath()">Save to source path</button>
+  <span id="status" class="ms-2"></span>
+</div>
+
+<input type="hidden" id="SID" value="{{sid}}">
+
+<ul class="nav nav-tabs" id="tabs">
+  <li class="nav-item"><a class="nav-link active" data-tab="player" href="#">Player / Inventory</a></li>
+  <li class="nav-item"><a class="nav-link" data-tab="game" href="#">Game Info</a></li>
+  <li class="nav-item"><a class="nav-link" data-tab="dbhint" href="#">Player DB</a></li>
+  <li class="nav-item"><a class="nav-link" data-tab="advanced" href="#">Advanced / Raw</a></li>
+</ul>
+
+<div id="tab-player" class="tab-pane mt-3">
+  <div class="row g-3">
+    <div class="col-lg-3">
+      <div class="panel">
+        <h5>Character</h5>
+        <div class="mb-2"><label class="small text-muted">Name</label><input id="v_name" class="form-control form-control-sm"></div>
+        <div class="mb-2"><label class="small text-muted">Class</label><input id="v_class" class="form-control form-control-sm" readonly></div>
+        <div class="row g-1">
+          <div class="col-6 mb-2"><label class="small text-muted">Level</label><input id="v_level" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">XP</label><input id="v_xp" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">HP</label><input id="v_hp" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">Gold</label><input id="v_gold" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">Focus</label><input id="v_focus" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">Action Pts</label><input id="v_ap" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">Max HP</label><input id="v_maxhp" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">Max Focus</label><input id="v_maxfocus" class="form-control form-control-sm" type="number"></div>
+        </div>
+        <button class="btn btn-primary btn-sm w-100 mt-1" onclick="applyVitals(); saveText('cs'); saveText('inst');">Save vitals</button>
+      </div>
+      <div class="panel">
+        <h5>Attributes</h5>
+        <div id="attrGrid" class="small"></div>
+        <button class="btn btn-primary btn-sm w-100 mt-2" onclick="applyAttrs(); saveText('cs');">Save attributes</button>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="panel">
+        <h5>Equipped Gear</h5>
+        <div class="row g-2 justify-content-center" id="gearSlots"></div>
+      </div>
+      <div class="panel">
+        <h5>Consumables / Status</h5>
+        <div class="row g-2">
+          <div class="col-4"><label class="small text-muted">Poison</label><input id="v_poison" class="form-control form-control-sm" type="number"></div>
+          <div class="col-4"><label class="small text-muted">Disease</label><input id="v_disease" class="form-control form-control-sm" type="number"></div>
+          <div class="col-4"><label class="small text-muted">Disease type</label><input id="v_diseasetype" class="form-control form-control-sm" placeholder="null"></div>
+          <div class="col-4"><label class="small text-muted">Ghost pts</label><input id="v_ghost" class="form-control form-control-sm" type="number"></div>
+          <div class="col-4"><label class="small text-muted">Resist death</label><input id="v_resist" class="form-control form-control-sm" type="number"></div>
+          <div class="col-4"><label class="small text-muted">Inn queue</label><input id="v_inn" class="form-control form-control-sm" type="number"></div>
+        </div>
+        <button class="btn btn-primary btn-sm w-100 mt-2" onclick="applyStatus(); saveText('cs');">Save status</button>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="panel">
+        <h5>Backpack / Other Containers</h5>
+        <div id="containerList"></div>
+        <button class="btn btn-primary btn-sm w-100 mt-2" onclick="saveInventory()">Save inventory</button>
+      </div>
+      <div class="panel">
+        <h6>Add item</h6>
+        <div class="row g-1">
+          <div class="col-5">
+            <select id="addItemContainer" class="form-select form-select-sm"></select>
+          </div>
+          <div class="col-4">
+            <input id="addItemId" class="form-control form-control-sm" list="itemIds" placeholder="itemId">
+            <datalist id="itemIds"></datalist>
+          </div>
+          <div class="col-2"><input id="addItemCount" class="form-control form-control-sm" type="number" value="1"></div>
+          <div class="col-1"><button class="btn btn-sm btn-secondary w-100" onclick="addItem()">+</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tab-game" class="tab-pane mt-3" style="display:none">
+  <div class="panel">
+    <h5>Game Info (JSON)</h5>
+    <textarea id="gameInfoText" class="form-control code" rows="22"></textarea>
+    <div class="mt-2">
+      <button class="btn btn-primary btn-sm" onclick="loadGameInfo()">Reload</button>
+      <button class="btn btn-primary btn-sm" onclick="saveGameInfo()">Save Game Info</button>
+    </div>
+  </div>
+</div>
+
+<div id="tab-dbhint" class="tab-pane mt-3" style="display:none">
+  <div class="panel">
+    <p>Use the dedicated Player DB editor from the home page for lore/achievements. This tab is a shortcut.</p>
+    <button class="btn btn-outline-light btn-sm" onclick="window.location='/'">Go to home / open player.db</button>
+  </div>
+</div>
+
+<div id="tab-advanced" class="tab-pane mt-3" style="display:none">
+  <div class="row g-3">
+    <div class="col-md-6">
+      <div class="panel">
+        <h5>State CS JSON</h5>
+        <textarea id="csText" class="form-control code" rows="18"></textarea>
+        <button class="btn btn-primary btn-sm mt-2" onclick="saveText('cs')">Save State CS</button>
+      </div>
+      <div class="panel">
+        <h5>State COW JSON</h5>
+        <textarea id="cowText" class="form-control code" rows="18"></textarea>
+        <button class="btn btn-primary btn-sm mt-2" onclick="saveText('cow')">Save State COW</button>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="panel">
+        <h5>InstData JSON</h5>
+        <textarea id="instText" class="form-control code" rows="14"></textarea>
+        <button class="btn btn-primary btn-sm mt-2" onclick="saveText('inst')">Save InstData</button>
+      </div>
+      <div class="panel">
+        <h5>Entire Save JSON</h5>
+        <textarea id="rawText" class="form-control code" rows="16"></textarea>
+        <div class="mt-2">
+          <button class="btn btn-primary btn-sm" onclick="loadRaw()">Reload raw</button>
+          <button class="btn btn-danger btn-sm" onclick="saveRaw()">Save raw</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SID=document.getElementById('SID').value;
+function setStatus(msg){document.getElementById('status').textContent=msg;}
+async function api(path,method='GET',body=null){
+  const opts={method,headers:{}};
+  if(body!==null){opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(body);}
+  const r=await fetch(path,opts);const t=await r.text();let j;try{j=JSON.parse(t);}catch(e){j={raw:t};}
+  if(!r.ok) throw new Error(j.error||t);
+  return j;
+}
+// tabs
+document.querySelectorAll('#tabs .nav-link').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();document.querySelectorAll('#tabs .nav-link').forEach(x=>x.classList.remove('active'));a.classList.add('active');['player','game','dbhint','advanced'].forEach(t=>{const el=document.getElementById('tab-'+t);if(el)el.style.display='none';});const el=document.getElementById('tab-'+a.dataset.tab);if(el)el.style.display='';});});
+
+let currentPlayer=0;
+let csData=null,cowData=null,instData=null;
+const ATTRS=['m_AugmentedDamagePhysical','m_AugmentedDamageMagic','m_AugmentedDefensePhysical','m_AugmentedDefenseMagic','m_AugmentedEvadeRating','m_AugmentedToughness','m_AugmentedAwareness','m_AugmentedFortitude','m_AugmentedQuickness','m_AugmentedVitality','m_AugmentedTalent','m_AugmentedLuck'];
+
+function gc(obj,key){if(!obj||obj[key]===undefined)return'';const v=obj[key];if(v&&Object.prototype.hasOwnProperty.call(v,'$content'))return v.$content;return (typeof v==='object')?JSON.stringify(v):v;}
+function sc(obj,key,value,typeHint=null){
+  if(!obj[key]) obj[key]={$content:value,$type:'System.Int32'};
+  else if(obj[key].$content!==undefined){
+    const t=typeHint||obj[key].$type||'System.Int32';
+    let vv=value;
+    if(t.includes('Single')||t.includes('Double')) vv=parseFloat(value);
+    else if(t.includes('Boolean')) vv=(value==='true'||value===true);
+    else if(t.includes('Int32')) vv=parseInt(value,10);
+    else vv=value;
+    obj[key].$content=vv;
+  } else obj[key]=value;
+}
+
+async function loadSummary(){
+  const d=await api(`/api/save/${SID}/summary`);
+  const sel=document.getElementById('playerSel'); sel.innerHTML='';
+  d.player_labels.forEach((lab,i)=>{const opt=document.createElement('option');opt.value=i;opt.textContent=lab;sel.appendChild(opt);});
+  if(d.player_labels.length) loadPlayer(0);
+  document.getElementById('gameInfoText').value=JSON.stringify(d.game_info,null,2);
+  setStatus('Loaded save');
+}
+async function loadPlayer(i){
+  currentPlayer=i;
+  const d=await api(`/api/save/${SID}/player/${i}`);
+  csData=d.cs;cowData=d.cow;instData=d.inst;
+  // identity
+  document.getElementById('v_class').value=(d.label.match(/\((.*) - level/)||['',''])[1];
+  document.getElementById('v_name').value=(instData&&instData.length>3&&instData[3].$content!==undefined)?instData[3].$content:'';
+  document.getElementById('v_level').value=gc(csData,'m_PlayerLevel');
+  document.getElementById('v_xp').value=gc(csData,'m_PlayerXP');
+  document.getElementById('v_hp').value=gc(csData,'m_HealthCurrent');
+  document.getElementById('v_gold').value=gc(csData,'m_Gold');
+  document.getElementById('v_focus').value=gc(csData,'m_FocusPoints');
+  document.getElementById('v_ap').value=gc(csData,'m_ActionPoints');
+  document.getElementById('v_maxhp').value=gc(csData,'m_AugmentedMaxHealth');
+  document.getElementById('v_maxfocus').value=gc(csData,'m_AugmentedMaxFocus');
+  document.getElementById('v_poison').value=gc(csData,'m_PoisonLvl');
+  document.getElementById('v_disease').value=gc(csData,'m_DiseaseLvl');
+  const dt=csData&&csData.m_DiseaseType;
+  document.getElementById('v_diseasetype').value=(dt===null?'null':(dt.$content!==undefined?dt.$content:JSON.stringify(dt)));
+  document.getElementById('v_ghost').value=gc(csData,'m_GhostPoints');
+  document.getElementById('v_resist').value=gc(csData,'m_ResistDeathPoints');
+  document.getElementById('v_inn').value=gc(csData,'m_InnQue');
+  // attrs
+  const grid=document.getElementById('attrGrid');grid.innerHTML='';
+  ATTRS.forEach(k=>{
+    const div=document.createElement('div');div.className='mb-1';
+    div.innerHTML=`<label class="small text-muted d-block">${k.replace('m_Augmented','')}</label><input class="form-control form-control-sm" data-attr="${k}" value="${gc(csData,k)}">`;
+    grid.appendChild(div);
+  });
+  // inventory
+  renderInventory();
+  // advanced text
+  document.getElementById('csText').value=JSON.stringify(csData,null,2);
+  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
+  document.getElementById('instText').value=JSON.stringify(instData,null,2);
+  setStatus('Loaded player');
+}
+
+function saveText(kind){
+  const map={cs:'csText',cow:'cowText',inst:'instText'};
+  const text=document.getElementById(map[kind]).value;
+  let obj; try{obj=JSON.parse(text);}catch(e){setStatus('Invalid JSON: '+e.message);return;}
+  const url=`/api/save/${SID}/player/${currentPlayer}/${kind==='inst'?'inst':kind}`;
+  const body = kind==='inst'?{inst:obj}:{obj:obj};
+  api(url,'POST',body).then(()=>{setStatus('Saved '+kind.toUpperCase()); if(kind==='cs')csData=obj; if(kind==='cow')cowData=obj; if(kind==='inst')instData=obj;}).catch(e=>setStatus('Error: '+e.message));
+}
+async function saveRaw(){const text=document.getElementById('rawText').value;try{JSON.parse(text);}catch(e){setStatus('Invalid JSON: '+e.message);return;}await api(`/api/save/${SID}/raw`,'POST',{text:text});setStatus('Saved raw save');}
+async function loadRaw(){const d=await api(`/api/save/${SID}/raw`);document.getElementById('rawText').value=d.text;setStatus('Loaded raw save');}
+async function loadGameInfo(){const d=await api(`/api/save/${SID}/summary`);document.getElementById('gameInfoText').value=JSON.stringify(d.game_info,null,2);setStatus('Loaded game info');}
+async function saveGameInfo(){const text=document.getElementById('gameInfoText').value;let obj;try{obj=JSON.parse(text);}catch(e){setStatus('Invalid JSON: '+e.message);return;}await api(`/api/save/${SID}/gameinfo`,'POST',{obj:obj});setStatus('Saved game info');}
+
+function applyVitals(){
+  sc(csData,'m_PlayerLevel',document.getElementById('v_level').value);
+  sc(csData,'m_PlayerXP',document.getElementById('v_xp').value);
+  sc(csData,'m_HealthCurrent',document.getElementById('v_hp').value);
+  sc(csData,'m_Gold',document.getElementById('v_gold').value);
+  sc(csData,'m_FocusPoints',document.getElementById('v_focus').value);
+  sc(csData,'m_ActionPoints',document.getElementById('v_ap').value);
+  sc(csData,'m_AugmentedMaxHealth',document.getElementById('v_maxhp').value);
+  sc(csData,'m_AugmentedMaxFocus',document.getElementById('v_maxfocus').value);
+  const name=document.getElementById('v_name').value;
+  if(instData&&instData.length>3&&instData[3].$content!==undefined) instData[3].$content=name;
+  document.getElementById('csText').value=JSON.stringify(csData,null,2);
+  document.getElementById('instText').value=JSON.stringify(instData,null,2);
+  setStatus('Applied vitals (click Save to persist)');
+}
+function applyAttrs(){
+  document.querySelectorAll('#attrGrid input[data-attr]').forEach(inp=>{
+    sc(csData,inp.dataset.attr,inp.value);
+  });
+  document.getElementById('csText').value=JSON.stringify(csData,null,2);
+  setStatus('Applied attributes (click Save State CS)');
+}
+function applyStatus(){
+  sc(csData,'m_PoisonLvl',document.getElementById('v_poison').value);
+  sc(csData,'m_DiseaseLvl',document.getElementById('v_disease').value);
+  const dt=document.getElementById('v_diseasetype').value.trim();
+  if(dt==='null'||dt==='None'||dt==='') csData.m_DiseaseType=null;
+  else sc(csData,'m_DiseaseType',dt);
+  sc(csData,'m_GhostPoints',document.getElementById('v_ghost').value);
+  sc(csData,'m_ResistDeathPoints',document.getElementById('v_resist').value);
+  sc(csData,'m_InnQue',document.getElementById('v_inn').value);
+  document.getElementById('csText').value=JSON.stringify(csData,null,2);
+  setStatus('Applied status (click Save State CS)');
+}
+
+// ---------- Inventory ----------
+const CONTAINER_TITLES={'m_ContainerBackpack':'Backpack','m_ContainerRightHand':'Right Hand','m_ContainerLeftHand':'Left Hand','m_ContainerHead':'Head','m_ContainerFoot':'Foot','m_ContainerBody':'Body','m_ContainerTrinket':'Trinket','m_ContainerBelt':'Belt','m_ContainerNeck':'Neck'};
+function inventoryObject(){return (cowData&&cowData.m_PlayerInventory)?cowData.m_PlayerInventory:{};}
+function containerEntries(){
+  const inv=inventoryObject();
+  const out=[];
+  Object.keys(inv).forEach(k=>{
+    if(!k.startsWith('m_Container')) return;
+    const c=inv[k];
+    if(!c||typeof c!=='object') return;
+    if(c.$ref) return;
+    // main container
+    out.push({key:k,title:CONTAINER_TITLES[k]||k.replace('m_Container',''),obj:c});
+    // shield hand inside right hand
+    if(c.m_ShieldHand && typeof c.m_ShieldHand==='object'){
+      out.push({key:k+'.m_ShieldHand',title:'Left Hand (shield)',obj:c.m_ShieldHand,parent:c});
+    }
+  });
+  return out;
+}
+function renderInventory(){
+  const gear=document.getElementById('gearSlots'); gear.innerHTML='';
+  const slots=['m_ContainerHead','m_ContainerNeck','m_ContainerBody','m_ContainerRightHand','m_ContainerLeftHand','m_ContainerFoot','m_ContainerTrinket','m_ContainerBelt'];
+  // resolve left hand via shield hand if possible
+  slots.forEach(sk=>{
+    const inv=inventoryObject();
+    let c=inv[sk];
+    let items={};
+    let title=CONTAINER_TITLES[sk]||sk;
+    if(sk==='m_ContainerLeftHand'){
+      const rh=inv['m_ContainerRightHand'];
+      if(rh&&rh.m_ShieldHand) c=rh.m_ShieldHand;
+    }
+    if(c&&c.m_ItemCounts) items=c.m_ItemCounts;
+    const div=document.createElement('div'); div.className='col-3 d-flex flex-column align-items-center';
+    const slot=document.createElement('div'); slot.className='slot mb-1';
+    const names=Object.keys(items);
+    if(names.length){
+      slot.innerHTML=`<div class="name">${names.join(', ')}</div><div class="small text-muted">${names.map(n=>items[n]).join('/')}</div>`;
+    } else {
+      slot.innerHTML='<div class="text-muted">empty</div>';
+    }
+    const lab=document.createElement('div'); lab.className='small'; lab.textContent=title;
+    div.appendChild(slot); div.appendChild(lab);
+    // inline edit counts
+    const edit=document.createElement('div'); edit.className='w-100 mt-1';
+    names.forEach(n=>{
+      edit.innerHTML+=`<div class="input-group input-group-sm mb-1"><input class="form-control" value="${n}" disabled><input class="form-control" style="max-width:54px" value="${items[n]}" data-slot="${sk}" data-item="${n}" onchange="updateItemCount(this)"><button class="btn btn-outline-danger" onclick="removeItem('${sk}','${n}')">x</button></div>`;
+    });
+    div.appendChild(edit);
+    gear.appendChild(div);
+  });
+
+  // container list for backpack/other
+  const list=document.getElementById('containerList'); list.innerHTML='';
+  const select=document.getElementById('addItemContainer'); select.innerHTML='';
+  containerEntries().forEach(ce=>{
+    const option=document.createElement('option'); option.value=ce.key; option.textContent=ce.title; select.appendChild(option);
+    const card=document.createElement('div'); card.className='card card-body p-2 mb-2 bg-dark';
+    card.innerHTML=`<div class="d-flex justify-content-between"><strong>${ce.title}</strong><span class="badge bg-secondary">${Object.keys(ce.obj.m_ItemCounts||{}).length} items</span></div>`;
+    const tbl=document.createElement('div');
+    Object.keys(ce.obj.m_ItemCounts||{}).forEach(item=>{
+      const row=document.createElement('div'); row.className='d-flex gap-1 align-items-center mt-1';
+      const plus10 = isConsumable(item) ? `<button class="btn btn-outline-success btn-sm" onclick="addTen('${ce.key}','${item}')">+10</button>` : '';
+      row.innerHTML=`<code class="id flex-grow-1">${item}</code><input class="form-control form-control-sm" style="width:70px" value="${ce.obj.m_ItemCounts[item]}" data-ck="${ce.key}" data-item="${item}" onchange="updateItemCountCK(this)">
+        ${plus10}<button class="btn btn-outline-danger btn-sm" onclick="removeItemCK('${ce.key}','${item}')">x</button>`;
+      tbl.appendChild(row);
+    });
+    card.appendChild(tbl);
+    list.appendChild(card);
+  });
+
+  // item id datalist
+  const ids=new Set();
+  containerEntries().forEach(ce=>Object.keys(ce.obj.m_ItemCounts||{}).forEach(i=>ids.add(i)));
+  const dl=document.getElementById('itemIds'); dl.innerHTML='';
+  ids.forEach(id=>{const o=document.createElement('option');o.value=id;dl.appendChild(o);});
+}
+function findContainerByKey(key){
+  const inv=inventoryObject();
+  if(key==='m_ContainerLeftHand'){
+    const rh=inv['m_ContainerRightHand'];
+    return rh&&rh.m_ShieldHand?rh.m_ShieldHand:null;
+  }
+  if(key.includes('.m_ShieldHand')){
+    const rh=inv['m_ContainerRightHand'];
+    return rh?rh.m_ShieldHand:null;
+  }
+  return inv[key];
+}
+function updateItemCount(inp){
+  // slot path (sk) maybe inventory keys
+  const sk=inp.dataset.slot; const item=inp.dataset.item; const c=findContainerByKey(sk);
+  if(!c||!c.m_ItemCounts) return;
+  c.m_ItemCounts[item]=parseInt(inp.value,10)||0;
+  if(c.m_ItemCounts[item]<=0) delete c.m_ItemCounts[item];
+  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
+  renderInventory();
+}
+function updateItemCountCK(inp){
+  const ck=inp.dataset.ck; const item=inp.dataset.item; const c=findContainerByKey(ck);
+  if(!c||!c.m_ItemCounts) return;
+  c.m_ItemCounts[item]=parseInt(inp.value,10)||0;
+  if(c.m_ItemCounts[item]<=0) delete c.m_ItemCounts[item];
+  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
+  renderInventory();
+}
+function removeItem(sk,item){
+  const c=findContainerByKey(sk);
+  if(c&&c.m_ItemCounts) delete c.m_ItemCounts[item];
+  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
+  renderInventory();
+}
+function removeItemCK(ck,item){
+  const c=findContainerByKey(ck);
+  if(c&&c.m_ItemCounts) delete c.m_ItemCounts[item];
+  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
+  renderInventory();
+}
+function addItem(){
+  const ck=document.getElementById('addItemContainer').value;
+  const item=document.getElementById('addItemId').value.trim();
+  const count=parseInt(document.getElementById('addItemCount').value,10)||1;
+  if(!item) return;
+  const c=findContainerByKey(ck);
+  if(!c) return;
+  if(!c.m_ItemCounts) c.m_ItemCounts={};
+  c.m_ItemCounts[item]=(c.m_ItemCounts[item]||0)+count;
+  document.getElementById('addItemId').value='';
+  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
+  renderInventory();
+}
+function isConsumable(id){
+  const l=String(id).toLowerCase();
+  return ['herb','con','candy','orb','scroll','potion','tonic','food','elixir','bomb','townteleport','tinder','mirror','lockpick','mushroom','rum','wine','mead','cookie','hotdog','egg'].some(p=>l.startsWith(p));
+}
+function addTen(ck,item){
+  const c=findContainerByKey(ck);
+  if(!c||!c.m_ItemCounts) return;
+  c.m_ItemCounts[item]=(c.m_ItemCounts[item]||0)+10;
+  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
+  renderInventory();
+  setStatus(item+' +10');
+}
+
+function saveInventory(){
+  // sync textarea and post
+  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
+  saveText('cow');
+}
+
+function exportSave(){window.location=`/api/save/${SID}/export`;}
+async function saveToPath(){const path=prompt('Path to write .run (blank for original):','');const body=path?{path:path}:{};try{const d=await api(`/api/save/${SID}/save_to_path`,'POST',body);setStatus('Saved to '+d.path);}catch(e){setStatus('Error: '+e.message);}}
+
+loadSummary();
+</script>
+</body>
+</html>
