@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FTK1 Save Editor</title>
+<style>
+body{font-family:system-ui,Arial,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;line-height:1.6;color:#222;}
+code{background:#f2f2f2;padding:2px 6px;border-radius:4px;}
+pre{background:#f7f7f7;padding:12px;border-radius:8px;overflow:auto;}
+a{color:#4f3f67;}
+</style>
+</head>
+<body>
+<h1>FTK1 Save Editor</h1>
+<p>A local Flask web app for editing <em>For The King</em> (FTK1) save files (<code>.run</code>) and <code>player.db</code>.</p>
+
+<h2>Features</h2>
+<ul>
+<li>Unpack and repack gzip UTF-16 JSON <code>.run</code> saves.</li>
+<li>Edit game info, character vitals, augmented stats, status, and inventory.</li>
+<li>Web UI with inventory-style gear slots and backpack item editing.</li>
+<li>Consumable +10 buttons.</li>
+<li>Edit <code>player.db</code>: stats, achievements, unlock all lore.</li>
+<li>Backup on overwrite (<code>.bak</code>).</li>
+</ul>
+
+<h2>Run locally</h2>
+<pre><code>git clone https://github.com/ap0ught/ftk1-save-editor.git
+cd ftk1-save-editor
+python -m pip install -r requirements.txt
+python app.py</code></pre>
+<p>Then open <a href="http://127.0.0.1:5000">http://127.0.0.1:5000</a>.</p>
+
+<p><strong>Note:</strong> this is a Python/Flask backend tool, so it runs locally. GitHub Pages hosts the static documentation; it cannot run the Python app itself.</p>
+
+<h2>Verify an edited save</h2>
+<pre><code>python3 verify_save.py /path/to/edited.run</code></pre>
+
+<p><a href="https://github.com/ap0ught/ftk1-save-editor">View the repository on GitHub</a></p>
+</body>
+</html>
