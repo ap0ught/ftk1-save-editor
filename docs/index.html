@@ -3,50 +3,402 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FTK1 Save Editor</title>
+<title>FTK1 Save Editor (Browser)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
 <style>
-body{font-family:system-ui,Arial,sans-serif;max-width:960px;margin:40px auto;padding:0 24px;line-height:1.6;background:#15111c;color:#e9e1f5;}
-a{color:#b9a6ff;}
-.hero{background:#231c2f;border:1px solid #4f3f67;border-radius:12px;padding:24px;margin-bottom:20px;}
-.panel{background:rgba(33,26,46,.92);border:1px solid #4f3f67;border-radius:12px;padding:18px;margin-bottom:16px;}
-code{background:#1b1426;color:#efe7ff;padding:2px 6px;border-radius:4px;}
-pre{background:#1b1426;color:#efe7ff;padding:12px;border-radius:8px;overflow:auto;border:1px solid #4f3f67;}
-h1,h2,h3{color:#ffffff;}
-ul li{margin:6px 0;}
-a.btn{display:inline-block;padding:8px 14px;background:#3b2b58;color:#fff;text-decoration:none;border-radius:8px;border:1px solid #7b67a0;}
-a.btn:hover{background:#4f3f67;}
+body{background:#15111c;color:#e9e1f5;padding:14px;}
+.topbar{background:#231c2f;border:1px solid #4f3f67;border-radius:10px;padding:12px;margin-bottom:12px;}
+.panel{background:rgba(33,26,46,.92);border:1px solid #4f3f67;border-radius:12px;padding:14px;margin-bottom:12px;}
+.slot{width:86px;height:86px;border:2px solid #7b67a0;border-radius:8px;background:#241a31;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:11px;position:relative;overflow:hidden;}
+.slot .name{word-break:break-word;line-height:1.1;}
+code.id{color:#b9a6ff;font-size:12px;}
+input.form-control,textarea.code,select.form-select{background:#1b1426;color:#efe7ff;border-color:#4f3f67;}
+label,.form-label,.text-muted{color:#ffffff !important;font-weight:600;}
+.btn{border-radius:8px;}
+.nav-tabs .nav-link{color:#d7c9f2;}
+.nav-tabs .nav-link.active{background:#2a1f3a;color:#fff;border-color:#4f3f67;}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#3b2b58;font-size:12px;}
 </style>
 </head>
-<body>
-<div class="hero"><h1>FTK1 Save Editor</h1>
-<p>A local Flask web app for editing <em>For The King</em> (FTK1) save files (<code>.run</code>) and <code>player.db</code>.</p>
-
+<body class="container-fluid">
+<div class="topbar d-flex flex-wrap align-items-center gap-2">
+  <span class="h4 mb-0">FTK1 Save Editor</span>
+  <span class="pill ms-2">Browser version (GitHub Pages)</span>
+  <input id="fileInput" type="file" class="form-control form-control-sm ms-3" style="width:260px" accept=".run">
+  <button class="btn btn-primary btn-sm" onclick="openFile()">Open .run</button>
+  <select id="playerSel" class="form-select form-select-sm" style="width:260px" onchange="switchPlayer(this.value)"></select>
+  <button class="btn btn-success btn-sm" onclick="downloadSave()">Download .run</button>
+  <span id="status" class="ms-2"></span>
 </div>
-<div class="panel"><h2>Features</h2>
-<ul>
-<li>Unpack and repack gzip UTF-16 JSON <code>.run</code> saves.</li>
-<li>Edit game info, character vitals, augmented stats, status, and inventory.</li>
-<li>Web UI with inventory-style gear slots and backpack item editing.</li>
-<li>Consumable +10 buttons.</li>
-<li>Edit <code>player.db</code>: stats, achievements, unlock all lore.</li>
-<li>Backup on overwrite (<code>.bak</code>).</li>
+
+<ul class="nav nav-tabs" id="tabs">
+  <li class="nav-item"><a class="nav-link active" data-tab="player" href="#">Player / Inventory</a></li>
+  <li class="nav-item"><a class="nav-link" data-tab="game" href="#">Game Info</a></li>
+  <li class="nav-item"><a class="nav-link" data-tab="advanced" href="#">Advanced / Raw</a></li>
 </ul>
 
-</div>
-<div class="panel"><h2>Run locally</h2>
-<pre><code>git clone https://github.com/ap0ught/ftk1-save-editor.git
-cd ftk1-save-editor
-python -m pip install -r requirements.txt
-python app.py</code></pre>
-<p>Then open <a href="http://127.0.0.1:5000">http://127.0.0.1:5000</a>.</p>
+<div id="tab-player" class="tab-pane mt-3">
+  <div class="row g-3">
+    <div class="col-lg-3">
+      <div class="panel">
+        <h5>Character</h5>
+        <div class="mb-2"><label class="small text-muted">Name</label><input id="v_name" class="form-control form-control-sm"></div>
+        <div class="mb-2"><label class="small text-muted">Class</label><input id="v_class" class="form-control form-control-sm" readonly></div>
+        <div class="row g-1">
+          <div class="col-6 mb-2"><label class="small text-muted">Level</label><input id="v_level" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">XP</label><input id="v_xp" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">HP</label><input id="v_hp" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">Gold</label><input id="v_gold" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">Focus</label><input id="v_focus" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">Action Pts</label><input id="v_ap" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">Max HP</label><input id="v_maxhp" class="form-control form-control-sm" type="number"></div>
+          <div class="col-6 mb-2"><label class="small text-muted">Max Focus</label><input id="v_maxfocus" class="form-control form-control-sm" type="number"></div>
+        </div>
+        <button class="btn btn-primary btn-sm w-100 mt-1" onclick="applyVitals();">Save vitals to memory</button>
+      </div>
+      <div class="panel">
+        <h5>Attributes</h5>
+        <div id="attrGrid" class="small"></div>
+        <button class="btn btn-primary btn-sm w-100 mt-2" onclick="applyAttrs();">Save attributes</button>
+      </div>
+    </div>
 
-<p><strong>Note:</strong> this is a Python/Flask backend tool, so it runs locally. GitHub Pages hosts the static documentation; it cannot run the Python app itself.</p>
+    <div class="col-lg-5">
+      <div class="panel">
+        <h5>Equipped Gear</h5>
+        <div class="row g-2 justify-content-center" id="gearSlots"></div>
+      </div>
+      <div class="panel">
+        <h5>Consumables / Status</h5>
+        <div class="row g-2">
+          <div class="col-4"><label class="small text-muted">Poison</label><input id="v_poison" class="form-control form-control-sm" type="number"></div>
+          <div class="col-4"><label class="small text-muted">Disease</label><input id="v_disease" class="form-control form-control-sm" type="number"></div>
+          <div class="col-4"><label class="small text-muted">Disease type</label><input id="v_diseasetype" class="form-control form-control-sm" placeholder="null"></div>
+          <div class="col-4"><label class="small text-muted">Ghost pts</label><input id="v_ghost" class="form-control form-control-sm" type="number"></div>
+          <div class="col-4"><label class="small text-muted">Resist death</label><input id="v_resist" class="form-control form-control-sm" type="number"></div>
+          <div class="col-4"><label class="small text-muted">Inn queue</label><input id="v_inn" class="form-control form-control-sm" type="number"></div>
+        </div>
+        <button class="btn btn-primary btn-sm w-100 mt-2" onclick="applyStatus();">Save status</button>
+      </div>
+    </div>
 
+    <div class="col-lg-4">
+      <div class="panel">
+        <h5>Backpack / Other Containers</h5>
+        <div id="containerList"></div>
+      </div>
+      <div class="panel">
+        <h6>Add item</h6>
+        <div class="row g-1">
+          <div class="col-5">
+            <select id="addItemContainer" class="form-select form-select-sm"></select>
+          </div>
+          <div class="col-4">
+            <input id="addItemId" class="form-control form-control-sm" list="itemIds" placeholder="itemId">
+            <datalist id="itemIds"></datalist>
+          </div>
+          <div class="col-2"><input id="addItemCount" class="form-control form-control-sm" type="number" value="1"></div>
+          <div class="col-1"><button class="btn btn-sm btn-secondary w-100" onclick="addItem()">+</button></div>
+        </div>
+        <p class="small text-muted mt-2 mb-0">Changes are kept in memory; click Download .run to get your edited file.</p>
+      </div>
+    </div>
+  </div>
 </div>
-<div class="panel"><h2>Verify an edited save</h2>
-<pre><code>python3 verify_save.py /path/to/edited.run</code></pre>
 
-<p><a href="https://github.com/ap0ught/ftk1-save-editor" class="btn">View repository on GitHub</a></p>
+<div id="tab-game" class="tab-pane mt-3" style="display:none">
+  <div class="panel">
+    <h5>Game Info (JSON)</h5>
+    <textarea id="gameInfoText" class="form-control code" rows="22"></textarea>
+  </div>
 </div>
+
+<div id="tab-advanced" class="tab-pane mt-3" style="display:none">
+  <div class="row g-3">
+    <div class="col-md-6">
+      <div class="panel">
+        <h5>State CS JSON</h5>
+        <textarea id="csText" class="form-control code" rows="18"></textarea>
+      </div>
+      <div class="panel">
+        <h5>State COW JSON</h5>
+        <textarea id="cowText" class="form-control code" rows="18"></textarea>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="panel">
+        <h5>InstData JSON</h5>
+        <textarea id="instText" class="form-control code" rows="14"></textarea>
+      </div>
+      <div class="panel">
+        <h5>Entire Save JSON</h5>
+        <textarea id="rawText" class="form-control code" rows="16"></textarea>
+        <p class="small text-muted mt-2">You can paste edited JSON here. It will be used if valid when downloading.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let saveData=null;
+let currentPlayer=0;
+let csData=null,cowData=null,instData=null;
+
+const ATTRS=['m_AugmentedDamagePhysical','m_AugmentedDamageMagic','m_AugmentedDefensePhysical','m_AugmentedDefenseMagic','m_AugmentedEvadeRating','m_AugmentedToughness','m_AugmentedAwareness','m_AugmentedFortitude','m_AugmentedQuickness','m_AugmentedVitality','m_AugmentedTalent','m_AugmentedLuck'];
+const CONTAINER_TITLES={'m_ContainerBackpack':'Backpack','m_ContainerRightHand':'Right Hand','m_ContainerLeftHand':'Left Hand','m_ContainerHead':'Head','m_ContainerFoot':'Foot','m_ContainerBody':'Body','m_ContainerTrinket':'Trinket','m_ContainerBelt':'Belt','m_ContainerNeck':'Neck'};
+
+function setStatus(msg){document.getElementById('status').textContent=msg;}
+function gc(obj,key){if(!obj||obj[key]===undefined)return'';const v=obj[key];if(v&&Object.prototype.hasOwnProperty.call(v,'$content'))return v.$content;return (typeof v==='object')?JSON.stringify(v):v;}
+function sc(obj,key,value,typeHint=null){
+  if(!obj[key]) obj[key]={$content:value,$type:'System.Int32'};
+  else if(obj[key].$content!==undefined){
+    const t=typeHint||obj[key].$type||'System.Int32';
+    let vv=value;
+    if(t.includes('Single')||t.includes('Double')) vv=parseFloat(value);
+    else if(t.includes('Boolean')) vv=(value==='true'||value===true);
+    else if(t.includes('Int32')) vv=parseInt(value,10);
+    else vv=value;
+    obj[key].$content=vv;
+  } else obj[key]=value;
+}
+function utf16Encode(s){const b=new Uint8Array(s.length*2);for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);b[i*2]=c&255;b[i*2+1]=(c>>8)&255;}return b.buffer;}
+
+function playerLabels(){
+  const gi=saveData.m_GameInfo||{};
+  const names=gi.m_PlayedWith||[];
+  const classes=gi.m_PlayedWithClass||[];
+  const levels=gi.m_PlayedWithLevel||[];
+  const out=[];
+  (saveData.m_PlayerSerialize||[]).forEach((p,i)=>{
+    let name=i<names.length?names[i]:`Player ${i}`;
+    try{const inst=p.m_InstData||[];if(inst.length>3&&inst[3].$content)name=inst[3].$content;}catch(e){}
+    const cls=i<classes.length?classes[i]:'?';
+    const lvl=i<levels.length?levels[i]:'?';
+    out.push(`${name} (${cls} - level ${lvl})`);
+  });
+  return out;
+}
+
+async function openFile(){
+  const f=document.getElementById('fileInput').files[0];
+  if(!f){setStatus('Choose a .run file first');return;}
+  try{
+    const buf=await f.arrayBuffer();
+    const ds=new DecompressionStream('gzip');
+    const ab=await new Response(new Blob([buf]).stream().pipeThrough(ds)).arrayBuffer();
+    const text=new TextDecoder('utf-16le').decode(ab);
+    saveData=JSON.parse(text);
+    setStatus('Loaded '+f.name);
+    populateSummary();
+    loadPlayer(0);
+  }catch(e){setStatus('Error: '+e.message);}
+}
+
+function populateSummary(){
+  const sel=document.getElementById('playerSel'); sel.innerHTML='';
+  playerLabels().forEach((lab,i)=>{const opt=document.createElement('option');opt.value=i;opt.textContent=lab;sel.appendChild(opt);});
+  document.getElementById('gameInfoText').value=JSON.stringify(saveData.m_GameInfo||{},null,2);
+  document.getElementById('rawText').value=JSON.stringify(saveData,null,2);
+}
+
+function syncCurrentPlayer(){
+  if(!saveData) return;
+  const p=saveData.m_PlayerSerialize[currentPlayer];
+  const cs=document.getElementById('csText').value;
+  const cow=document.getElementById('cowText').value;
+  const inst=document.getElementById('instText').value;
+  try{JSON.parse(cs);p.m_StateCSData=cs;}catch(e){}
+  try{JSON.parse(cow);p.m_StateCOWData=cow;}catch(e){}
+  try{JSON.parse(inst);p.m_InstData=JSON.parse(inst);}catch(e){}
+  if(csData) Object.assign(csData, JSON.parse(cs));
+  if(cowData) Object.assign(cowData, JSON.parse(cow));
+  if(instData) instData=JSON.parse(inst);
+}
+
+function loadPlayer(i){
+  syncCurrentPlayer();
+  currentPlayer=i;
+  const p=saveData.m_PlayerSerialize[i];
+  csData=JSON.parse(p.m_StateCSData);
+  cowData=JSON.parse(p.m_StateCOWData);
+  instData=p.m_InstData;
+  const gi=saveData.m_GameInfo||{};
+  const names=gi.m_PlayedWith||[];const classes=gi.m_PlayedWithClass||[];const levels=gi.m_PlayedWithLevel||[];
+  document.getElementById('v_class').value=i<classes.length?classes[i]:'';
+  document.getElementById('v_name').value=(instData&&instData.length>3&&instData[3].$content!==undefined)?instData[3].$content:(i<names.length?names[i]:'');
+  document.getElementById('v_level').value=gc(csData,'m_PlayerLevel');
+  document.getElementById('v_xp').value=gc(csData,'m_PlayerXP');
+  document.getElementById('v_hp').value=gc(csData,'m_HealthCurrent');
+  document.getElementById('v_gold').value=gc(csData,'m_Gold');
+  document.getElementById('v_focus').value=gc(csData,'m_FocusPoints');
+  document.getElementById('v_ap').value=gc(csData,'m_ActionPoints');
+  document.getElementById('v_maxhp').value=gc(csData,'m_AugmentedMaxHealth');
+  document.getElementById('v_maxfocus').value=gc(csData,'m_AugmentedMaxFocus');
+  document.getElementById('v_poison').value=gc(csData,'m_PoisonLvl');
+  document.getElementById('v_disease').value=gc(csData,'m_DiseaseLvl');
+  const dt=csData&&csData.m_DiseaseType;
+  document.getElementById('v_diseasetype').value=(dt===null?'null':(dt&&dt.$content!==undefined?dt.$content:JSON.stringify(dt)));
+  document.getElementById('v_ghost').value=gc(csData,'m_GhostPoints');
+  document.getElementById('v_resist').value=gc(csData,'m_ResistDeathPoints');
+  document.getElementById('v_inn').value=gc(csData,'m_InnQue');
+  const grid=document.getElementById('attrGrid');grid.innerHTML='';
+  ATTRS.forEach(k=>{
+    const div=document.createElement('div');div.className='mb-1';
+    div.innerHTML=`<label class="small text-muted d-block">${k.replace('m_Augmented','')}</label><input class="form-control form-control-sm" data-attr="${k}" value="${gc(csData,k)}">`;
+    grid.appendChild(div);
+  });
+  renderInventory();
+  document.getElementById('csText').value=JSON.stringify(csData,null,2);
+  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
+  document.getElementById('instText').value=JSON.stringify(instData,null,2);
+  document.getElementById('rawText').value=JSON.stringify(saveData,null,2);
+}
+
+function switchPlayer(val){loadPlayer(parseInt(val,10));}
+
+function applyVitals(){
+  sc(csData,'m_PlayerLevel',document.getElementById('v_level').value);
+  sc(csData,'m_PlayerXP',document.getElementById('v_xp').value);
+  sc(csData,'m_HealthCurrent',document.getElementById('v_hp').value);
+  sc(csData,'m_Gold',document.getElementById('v_gold').value);
+  sc(csData,'m_FocusPoints',document.getElementById('v_focus').value);
+  sc(csData,'m_ActionPoints',document.getElementById('v_ap').value);
+  sc(csData,'m_AugmentedMaxHealth',document.getElementById('v_maxhp').value);
+  sc(csData,'m_AugmentedMaxFocus',document.getElementById('v_maxfocus').value);
+  const name=document.getElementById('v_name').value;
+  if(instData&&instData.length>3&&instData[3].$content!==undefined) instData[3].$content=name;
+  document.getElementById('csText').value=JSON.stringify(csData,null,2);
+  document.getElementById('instText').value=JSON.stringify(instData,null,2);
+  setStatus('Applied vitals');
+}
+function applyAttrs(){
+  document.querySelectorAll('#attrGrid input[data-attr]').forEach(inp=>{sc(csData,inp.dataset.attr,inp.value);});
+  document.getElementById('csText').value=JSON.stringify(csData,null,2);
+  setStatus('Applied attributes');
+}
+function applyStatus(){
+  sc(csData,'m_PoisonLvl',document.getElementById('v_poison').value);
+  sc(csData,'m_DiseaseLvl',document.getElementById('v_disease').value);
+  const dt=document.getElementById('v_diseasetype').value.trim();
+  if(dt==='null'||dt==='None'||dt==='') csData.m_DiseaseType=null;
+  else sc(csData,'m_DiseaseType',dt);
+  sc(csData,'m_GhostPoints',document.getElementById('v_ghost').value);
+  sc(csData,'m_ResistDeathPoints',document.getElementById('v_resist').value);
+  sc(csData,'m_InnQue',document.getElementById('v_inn').value);
+  document.getElementById('csText').value=JSON.stringify(csData,null,2);
+  setStatus('Applied status');
+}
+
+// Inventory functions as before
+function inventoryObject(){return (cowData&&cowData.m_PlayerInventory)?cowData.m_PlayerInventory:{};}
+function containerEntries(){
+  const inv=inventoryObject();const out=[];
+  Object.keys(inv).forEach(k=>{
+    if(!k.startsWith('m_Container')) return;
+    const c=inv[k];if(!c||typeof c!=='object') return;if(c.$ref) return;
+    out.push({key:k,title:CONTAINER_TITLES[k]||k.replace('m_Container',''),obj:c});
+    if(c.m_ShieldHand && typeof c.m_ShieldHand==='object') out.push({key:k+'.m_ShieldHand',title:'Left Hand (shield)',obj:c.m_ShieldHand,parent:c});
+  });
+  return out;
+}
+function findContainerByKey(key){
+  const inv=inventoryObject();
+  if(key==='m_ContainerLeftHand'){const rh=inv['m_ContainerRightHand'];return rh&&rh.m_ShieldHand?rh.m_ShieldHand:null;}
+  if(key.includes('.m_ShieldHand')){const rh=inv['m_ContainerRightHand'];return rh?rh.m_ShieldHand:null;}
+  return inv[key];
+}
+function isConsumable(id){const l=String(id).toLowerCase();return ['herb','con','candy','orb','scroll','potion','tonic','food','elixir','bomb','townteleport','tinder','mirror','lockpick','mushroom','rum','wine','mead','cookie','hotdog','egg'].some(p=>l.startsWith(p));}
+function renderInventory(){
+  const gear=document.getElementById('gearSlots');gear.innerHTML='';
+  const slots=['m_ContainerHead','m_ContainerNeck','m_ContainerBody','m_ContainerRightHand','m_ContainerLeftHand','m_ContainerFoot','m_ContainerTrinket','m_ContainerBelt'];
+  slots.forEach(sk=>{
+    const inv=inventoryObject();
+    let c=inv[sk];let items={};let title=CONTAINER_TITLES[sk]||sk;
+    if(sk==='m_ContainerLeftHand'){const rh=inv['m_ContainerRightHand'];if(rh&&rh.m_ShieldHand)c=rh.m_ShieldHand;}
+    if(c&&c.m_ItemCounts) items=c.m_ItemCounts;
+    const div=document.createElement('div');div.className='col-3 d-flex flex-column align-items-center';
+    const slot=document.createElement('div');slot.className='slot mb-1';
+    const names=Object.keys(items);
+    if(names.length) slot.innerHTML=`<div class="name">${names.join(', ')}</div><div class="small text-muted">${names.map(n=>items[n]).join('/')}</div>`;
+    else slot.innerHTML='<div class="text-muted">empty</div>';
+    const lab=document.createElement('div');lab.className='small';lab.textContent=title;
+    const edit=document.createElement('div');edit.className='w-100 mt-1';
+    names.forEach(n=>{
+      edit.innerHTML+=`<div class="input-group input-group-sm mb-1"><input class="form-control" value="${n}" disabled><input class="form-control" style="max-width:54px" value="${items[n]}" data-slot="${sk}" data-item="${n}" onchange="updateItemCount(this)"><button class="btn btn-outline-danger" onclick="removeItem('${sk}','${n}')">x</button></div>`;
+    });
+    div.appendChild(slot);div.appendChild(lab);div.appendChild(edit);gear.appendChild(div);
+  });
+
+  const list=document.getElementById('containerList');list.innerHTML='';
+  const select=document.getElementById('addItemContainer');select.innerHTML='';
+  containerEntries().forEach(ce=>{
+    const option=document.createElement('option');option.value=ce.key;option.textContent=ce.title;select.appendChild(option);
+    const card=document.createElement('div');card.className='card card-body p-2 mb-2 bg-dark';
+    card.innerHTML=`<div class="d-flex justify-content-between"><strong>${ce.title}</strong><span class="badge bg-secondary">${Object.keys(ce.obj.m_ItemCounts||{}).length} items</span></div>`;
+    const tbl=document.createElement('div');
+    Object.keys(ce.obj.m_ItemCounts||{}).forEach(item=>{
+      const row=document.createElement('div');row.className='d-flex gap-1 align-items-center mt-1';
+      const plus10=isConsumable(item)?`<button class="btn btn-outline-success btn-sm" onclick="addTen('${ce.key}','${item}')">+10</button>`:'';
+      row.innerHTML=`<code class="id flex-grow-1">${item}</code><input class="form-control form-control-sm" style="width:70px" value="${ce.obj.m_ItemCounts[item]}" data-ck="${ce.key}" data-item="${item}" onchange="updateItemCountCK(this)"> ${plus10}<button class="btn btn-outline-danger btn-sm" onclick="removeItemCK('${ce.key}','${item}')">x</button>`;
+      tbl.appendChild(row);
+    });
+    card.appendChild(tbl);list.appendChild(card);
+  });
+
+  const ids=new Set();
+  containerEntries().forEach(ce=>Object.keys(ce.obj.m_ItemCounts||{}).forEach(i=>ids.add(i)));
+  const dl=document.getElementById('itemIds');dl.innerHTML='';
+  ids.forEach(id=>{const o=document.createElement('option');o.value=id;dl.appendChild(o);});
+}
+function updateItemCount(inp){
+  const sk=inp.dataset.slot;const item=inp.dataset.item;const c=findContainerByKey(sk);
+  if(!c||!c.m_ItemCounts) return;
+  c.m_ItemCounts[item]=parseInt(inp.value,10)||0;
+  if(c.m_ItemCounts[item]<=0) delete c.m_ItemCounts[item];
+  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
+}
+function updateItemCountCK(inp){
+  const ck=inp.dataset.ck;const item=inp.dataset.item;const c=findContainerByKey(ck);
+  if(!c||!c.m_ItemCounts) return;
+  c.m_ItemCounts[item]=parseInt(inp.value,10)||0;
+  if(c.m_ItemCounts[item]<=0) delete c.m_ItemCounts[item];
+  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
+  renderInventory();
+}
+function removeItem(sk,item){const c=findContainerByKey(sk);if(c&&c.m_ItemCounts) delete c.m_ItemCounts[item];document.getElementById('cowText').value=JSON.stringify(cowData,null,2);renderInventory();}
+function removeItemCK(ck,item){const c=findContainerByKey(ck);if(c&&c.m_ItemCounts) delete c.m_ItemCounts[item];document.getElementById('cowText').value=JSON.stringify(cowData,null,2);renderInventory();}
+function addItem(){
+  const ck=document.getElementById('addItemContainer').value;const item=document.getElementById('addItemId').value.trim();const count=parseInt(document.getElementById('addItemCount').value,10)||1;if(!item) return;
+  const c=findContainerByKey(ck);if(!c) return;if(!c.m_ItemCounts)c.m_ItemCounts={};c.m_ItemCounts[item]=(c.m_ItemCounts[item]||0)+count;
+  document.getElementById('addItemId').value='';document.getElementById('cowText').value=JSON.stringify(cowData,null,2);renderInventory();
+}
+function addTen(ck,item){const c=findContainerByKey(ck);if(!c||!c.m_ItemCounts) return;c.m_ItemCounts[item]=(c.m_ItemCounts[item]||0)+10;document.getElementById('cowText').value=JSON.stringify(cowData,null,2);renderInventory();setStatus(item+' +10');}
+
+function syncFromTextareas(){
+  if(!saveData) return;
+  syncCurrentPlayer();
+  try{saveData.m_GameInfo=JSON.parse(document.getElementById('gameInfoText').value);}catch(e){}
+  try{saveData=JSON.parse(document.getElementById('rawText').value);}catch(e){}
+}
+async function downloadSave(){
+  if(!saveData){setStatus('No save loaded');return;}
+  syncCurrentPlayer();
+  // sync current cs/cow/inst text into current player already done
+  try{saveData.m_GameInfo=JSON.parse(document.getElementById('gameInfoText').value);}catch(e){}
+  try{}catch(e){}
+  try{saveData.m_PlayerSerialize[currentPlayer].m_StateCSData=document.getElementById('csText').value;}catch(e){}
+  try{saveData.m_PlayerSerialize[currentPlayer].m_StateCOWData=document.getElementById('cowText').value;}catch(e){}
+  try{saveData.m_PlayerSerialize[currentPlayer].m_InstData=JSON.parse(document.getElementById('instText').value);}catch(e){}
+  const text=JSON.stringify(saveData);
+  document.getElementById('rawText').value=text;
+  const bytes=utf16Encode(text);
+  const cs=new CompressionStream('gzip');
+  const blob=await new Response(new Blob([bytes]).stream().pipeThrough(cs)).blob();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='edited.run';a.click();
+  setStatus('Downloaded edited.run');
+}
+
+document.querySelectorAll('#tabs .nav-link').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();document.querySelectorAll('#tabs .nav-link').forEach(x=>x.classList.remove('active'));a.classList.add('active');['player','game','advanced'].forEach(t=>{const el=document.getElementById('tab-'+t);if(el)el.style.display='none';});const el=document.getElementById('tab-'+a.dataset.tab);if(el)el.style.display='';});});
+</script>
 </body>
 </html>
