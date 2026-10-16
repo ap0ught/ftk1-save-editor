@@ -55,6 +55,7 @@ label,.form-label,.text-muted{color:#ffffff !important;font-weight:600;}
           <div class="col-6 mb-2"><label class="small text-muted">Max Focus</label><input id="v_maxfocus" class="form-control form-control-sm" type="number"></div>
         </div>
         <button class="btn btn-primary btn-sm w-100 mt-1" onclick="applyVitals();">Save vitals to memory</button>
+        <button class="btn btn-warning btn-sm w-100 mt-1" onclick="giveEveryoneGold(9967);">Give everyone 9967 gold</button>
       </div>
       <div class="panel">
         <h5>Attributes</h5>
@@ -289,6 +290,25 @@ function applyStatus(){
   setStatus('Applied status');
 }
 
+function giveEveryoneGold(amount){
+  if(!saveData){setStatus('No save loaded');return;}
+  syncCurrentPlayer();
+  const players=saveData.m_PlayerSerialize||[];
+  let n=0;
+  players.forEach(p=>{
+    if(!p||typeof p.m_StateCSData!=='string') return;
+    let cs; try{cs=JSON.parse(p.m_StateCSData);}catch(e){return;}
+    if(!cs||typeof cs!=='object') return;
+    sc(cs,'m_Gold',amount);
+    p.m_StateCSData=JSON.stringify(cs);
+    n++;
+  });
+  const cur=saveData.m_PlayerSerialize[currentPlayer];
+  if(cur&&typeof cur.m_StateCSData==='string') document.getElementById('csText').value=cur.m_StateCSData;
+  loadPlayer(currentPlayer);
+  setStatus(`Set gold to ${amount} for ${n} player${n===1?'':'s'} - click Download .run to save`);
+}
+
 // Inventory functions as before
 function inventoryObject(){return (cowData&&cowData.m_PlayerInventory)?cowData.m_PlayerInventory:{};}
 function containerEntries(){
@@ -318,8 +338,8 @@ function renderInventory(){
     if(c&&c.m_ItemCounts) items=c.m_ItemCounts;
     const div=document.createElement('div');div.className='col-3 d-flex flex-column align-items-center';
     const slot=document.createElement('div');slot.className='slot mb-1';
-    slot.title = names.length ? names.join(', ') : 'empty';
     const names=Object.keys(items);
+    slot.title = names.length ? names.join(', ') : 'empty';
     if(names.length) slot.innerHTML=`<div class="name">${names.join(', ')}</div><div class="small text-muted">${names.map(n=>items[n]).join('/')}</div>`;
     else slot.innerHTML='<div class="text-muted">empty</div>';
     const lab=document.createElement('div');lab.className='small';lab.textContent=title;

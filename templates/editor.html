@@ -57,6 +57,7 @@ label,.form-label,.text-muted{color:#ffffff !important; font-weight:600;}
           <div class="col-6 mb-2"><label class="small text-muted">Max Focus</label><input id="v_maxfocus" class="form-control form-control-sm" type="number"></div>
         </div>
         <button class="btn btn-primary btn-sm w-100 mt-1" onclick="applyVitals(); saveText('cs'); saveText('inst');">Save vitals</button>
+        <button class="btn btn-warning btn-sm w-100 mt-1" onclick="giveEveryoneGold(9967);">Give everyone 9967 gold</button>
       </div>
       <div class="panel">
         <h5>Attributes</h5>
@@ -283,6 +284,21 @@ function applyStatus(){
   setStatus('Applied status (click Save State CS)');
 }
 
+async function giveEveryoneGold(amount){
+  const count=document.getElementById('playerSel').options.length;
+  if(!count){setStatus('No save loaded');return;}
+  setStatus('Setting gold for every player...');
+  try{
+    for(let i=0;i<count;i++){
+      const d=await api(`/api/save/${SID}/player/${i}`);
+      sc(d.cs,'m_Gold',amount);
+      await api(`/api/save/${SID}/player/${i}/cs`,'POST',{obj:d.cs});
+    }
+    await loadPlayer(currentPlayer);
+    setStatus(`Set gold to ${amount} for ${count} player${count===1?'':'s'}`);
+  }catch(e){setStatus('Error: '+e.message);}
+}
+
 // ---------- Inventory ----------
 const CONTAINER_TITLES={'m_ContainerBackpack':'Backpack','m_ContainerRightHand':'Right Hand','m_ContainerLeftHand':'Left Hand','m_ContainerHead':'Head','m_ContainerFoot':'Foot','m_ContainerBody':'Body','m_ContainerTrinket':'Trinket','m_ContainerBelt':'Belt','m_ContainerNeck':'Neck'};
 function inventoryObject(){return (cowData&&cowData.m_PlayerInventory)?cowData.m_PlayerInventory:{};}
@@ -319,8 +335,8 @@ function renderInventory(){
     if(c&&c.m_ItemCounts) items=c.m_ItemCounts;
     const div=document.createElement('div'); div.className='col-3 d-flex flex-column align-items-center';
     const slot=document.createElement('div'); slot.className='slot mb-1';
-    slot.title = names.length ? names.join(', ') : 'empty';
     const names=Object.keys(items);
+    slot.title = names.length ? names.join(', ') : 'empty';
     if(names.length){
       slot.innerHTML=`<div class="name">${names.join(', ')}</div><div class="small text-muted">${names.map(n=>items[n]).join('/')}</div>`;
     } else {
