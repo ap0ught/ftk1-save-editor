@@ -233,12 +233,23 @@ async function loadPlayer(i){
   document.getElementById('csText').value=JSON.stringify(csData,null,2);
   document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
   document.getElementById('instText').value=JSON.stringify(instData,null,2);
+  taSetOwner('csText',i);taSetOwner('cowText',i);taSetOwner('instText',i);
   setStatus('Loaded player');
 }
 
+// panes are tagged with the player index whose data they hold; a Save that
+// would post another character's pane is refused (crash mid-load protection)
+function taOwner(id){const t=document.getElementById(id);return t.dataset.player;}
+function taSetOwner(id,i){document.getElementById(id).dataset.player=String(i);}
+
 function saveText(kind){
   const map={cs:'csText',cow:'cowText',inst:'instText'};
-  const text=document.getElementById(map[kind]).value;
+  const pane=map[kind];
+  if(taOwner(pane)!==String(currentPlayer)){
+    setStatus('Refused: '+pane+' still holds data from another character - reload the character first');
+    return;
+  }
+  const text=document.getElementById(pane).value;
   let obj; try{obj=JSON.parse(text);}catch(e){setStatus('Invalid JSON: '+e.message);return;}
   const url=`/api/save/${SID}/player/${currentPlayer}/${kind==='inst'?'inst':kind}`;
   const body = kind==='inst'?{inst:obj}:{obj:obj};

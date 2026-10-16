@@ -203,20 +203,35 @@ function populateSummary(){
 }
 
 function tryParse(s){try{return JSON.parse(s);}catch(e){return undefined;}}
+// Each textarea is tagged with the player index whose data it currently holds
+// (set whenever a textarea is filled). A pane that still belongs to another
+// character -- e.g. because a load crashed half-way -- is never written back.
+function taOwner(id){const t=document.getElementById(id);return t.dataset.player;}
+function taSetOwner(id,i){document.getElementById(id).dataset.player=String(i);}
 function syncCurrentPlayer(){
-  if(!saveData) return;
+  const stale=[];
+  if(!saveData) return stale;
   const p=saveData.m_PlayerSerialize[currentPlayer];
+  if(!p) return stale;
   const cs=document.getElementById('csText').value;
   const cow=document.getElementById('cowText').value;
   const inst=document.getElementById('instText').value;
-  // only write back into the save when the textarea holds valid JSON,
-  // so an empty/broken textarea can never corrupt the file
-  try{JSON.parse(cs);p.m_StateCSData=cs;}catch(e){}
-  try{JSON.parse(cow);p.m_StateCOWData=cow;}catch(e){}
-  const instObj=tryParse(inst);
-  if(Array.isArray(instObj)){p.m_InstData=instObj;instData=instObj;}
-  const csObj=tryParse(cs); if(csData&&csObj&&typeof csObj==='object') Object.assign(csData,csObj);
-  const cowObj=tryParse(cow); if(cowData&&cowObj&&typeof cowObj==='object') Object.assign(cowData,cowObj);
+  const cur=String(currentPlayer);
+  // only write back into the save when the pane belongs to this player AND
+  // holds valid JSON: empty/broken/foreign text can never corrupt the file
+  if(taOwner('csText')===cur){
+    try{JSON.parse(cs);p.m_StateCSData=cs;}catch(e){}
+    const csObj=tryParse(cs); if(csData&&csObj&&typeof csObj==='object') Object.assign(csData,csObj);
+  } else if(cs.trim()!==''){ stale.push('State CS text is from another character'); }
+  if(taOwner('cowText')===cur){
+    try{JSON.parse(cow);p.m_StateCOWData=cow;}catch(e){}
+    const cowObj=tryParse(cow); if(cowData&&cowObj&&typeof cowObj==='object') Object.assign(cowData,cowObj);
+  } else if(cow.trim()!==''){ stale.push('State COW text is from another character'); }
+  if(taOwner('instText')===cur){
+    const instObj=tryParse(inst);
+    if(Array.isArray(instObj)){p.m_InstData=instObj;instData=instObj;}
+  } else if(inst.trim()!==''){ stale.push('InstData text is from another character'); }
+  return stale;
 }
 
 function loadPlayer(i){
@@ -263,6 +278,7 @@ function loadPlayer(i){
   document.getElementById('csText').value=csInvalid?(typeof p.m_StateCSData==='string'?p.m_StateCSData:''):JSON.stringify(csData,null,2);
   document.getElementById('cowText').value=cowInvalid?(typeof p.m_StateCOWData==='string'?p.m_StateCOWData:''):JSON.stringify(cowData,null,2);
   document.getElementById('instText').value=instInvalid?(typeof p.m_InstData==='string'?p.m_InstData:''):JSON.stringify(instData,null,2);
+  taSetOwner('csText',i);taSetOwner('cowText',i);taSetOwner('instText',i);
   document.getElementById('rawText').value=JSON.stringify(saveData,null,2);
   if(warn) setStatus('Loaded with warnings:'+warn+' Repair it in the Advanced / Raw tab, then Download .run.');
 }
@@ -282,11 +298,13 @@ function applyVitals(){
   if(instData&&instData.length>3&&instData[3].$content!==undefined) instData[3].$content=name;
   document.getElementById('csText').value=JSON.stringify(csData,null,2);
   document.getElementById('instText').value=JSON.stringify(instData,null,2);
+  taSetOwner('csText',currentPlayer);taSetOwner('instText',currentPlayer);
   setStatus('Applied vitals');
 }
 function applyAttrs(){
   document.querySelectorAll('#attrGrid input[data-attr]').forEach(inp=>{sc(csData,inp.dataset.attr,inp.value);});
   document.getElementById('csText').value=JSON.stringify(csData,null,2);
+  taSetOwner('csText',currentPlayer);
   setStatus('Applied attributes');
 }
 function applyStatus(){
@@ -299,6 +317,7 @@ function applyStatus(){
   sc(csData,'m_ResistDeathPoints',document.getElementById('v_resist').value);
   sc(csData,'m_InnQue',document.getElementById('v_inn').value);
   document.getElementById('csText').value=JSON.stringify(csData,null,2);
+  taSetOwner('csText',currentPlayer);
   setStatus('Applied status');
 }
 
@@ -316,7 +335,7 @@ function giveEveryoneGold(amount){
     n++;
   });
   const cur=saveData.m_PlayerSerialize[currentPlayer];
-  if(cur&&typeof cur.m_StateCSData==='string') document.getElementById('csText').value=cur.m_StateCSData;
+  if(cur&&typeof cur.m_StateCSData==='string'){document.getElementById('csText').value=cur.m_StateCSData;taSetOwner('csText',currentPlayer);}
   loadPlayer(currentPlayer);
   setStatus(`Set gold to ${amount} for ${n} player${n===1?'':'s'} - click Download .run to save`);
 }
@@ -388,24 +407,24 @@ function updateItemCount(inp){
   if(!c||!c.m_ItemCounts) return;
   c.m_ItemCounts[item]=parseInt(inp.value,10)||0;
   if(c.m_ItemCounts[item]<=0) delete c.m_ItemCounts[item];
-  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
+  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);taSetOwner('cowText',currentPlayer);
 }
 function updateItemCountCK(inp){
   const ck=inp.dataset.ck;const item=inp.dataset.item;const c=findContainerByKey(ck);
   if(!c||!c.m_ItemCounts) return;
   c.m_ItemCounts[item]=parseInt(inp.value,10)||0;
   if(c.m_ItemCounts[item]<=0) delete c.m_ItemCounts[item];
-  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
+  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);taSetOwner('cowText',currentPlayer);
   renderInventory();
 }
-function removeItem(sk,item){const c=findContainerByKey(sk);if(c&&c.m_ItemCounts) delete c.m_ItemCounts[item];document.getElementById('cowText').value=JSON.stringify(cowData,null,2);renderInventory();}
-function removeItemCK(ck,item){const c=findContainerByKey(ck);if(c&&c.m_ItemCounts) delete c.m_ItemCounts[item];document.getElementById('cowText').value=JSON.stringify(cowData,null,2);renderInventory();}
+function removeItem(sk,item){const c=findContainerByKey(sk);if(c&&c.m_ItemCounts) delete c.m_ItemCounts[item];document.getElementById('cowText').value=JSON.stringify(cowData,null,2);taSetOwner('cowText',currentPlayer);renderInventory();}
+function removeItemCK(ck,item){const c=findContainerByKey(ck);if(c&&c.m_ItemCounts) delete c.m_ItemCounts[item];document.getElementById('cowText').value=JSON.stringify(cowData,null,2);taSetOwner('cowText',currentPlayer);renderInventory();}
 function addItem(){
   const ck=document.getElementById('addItemContainer').value;const item=document.getElementById('addItemId').value.trim();const count=parseInt(document.getElementById('addItemCount').value,10)||1;if(!item) return;
   const c=findContainerByKey(ck);if(!c) return;if(!c.m_ItemCounts)c.m_ItemCounts={};c.m_ItemCounts[item]=(c.m_ItemCounts[item]||0)+count;
-  document.getElementById('addItemId').value='';document.getElementById('cowText').value=JSON.stringify(cowData,null,2);renderInventory();
+  document.getElementById('addItemId').value='';document.getElementById('cowText').value=JSON.stringify(cowData,null,2);taSetOwner('cowText',currentPlayer);renderInventory();
 }
-function addTen(ck,item){const c=findContainerByKey(ck);if(!c||!c.m_ItemCounts) return;c.m_ItemCounts[item]=(c.m_ItemCounts[item]||0)+10;document.getElementById('cowText').value=JSON.stringify(cowData,null,2);renderInventory();setStatus(item+' +10');}
+function addTen(ck,item){const c=findContainerByKey(ck);if(!c||!c.m_ItemCounts) return;c.m_ItemCounts[item]=(c.m_ItemCounts[item]||0)+10;document.getElementById('cowText').value=JSON.stringify(cowData,null,2);taSetOwner('cowText',currentPlayer);renderInventory();setStatus(item+' +10');}
 
 function syncFromTextareas(){
   if(!saveData) return;
@@ -415,16 +434,23 @@ function syncFromTextareas(){
 }
 async function downloadSave(){
   if(!saveData){setStatus('No save loaded');return;}
-  syncCurrentPlayer();
+  const skipped=syncCurrentPlayer();
   // sync current cs/cow/inst text into current player already done
   try{const o=JSON.parse(document.getElementById('gameInfoText').value);saveData.m_GameInfo=o;}catch(e){}
-  // write the textareas back only when they hold valid JSON (never empty/ broken text)
-  const skipped=[];
-  const csTxt=document.getElementById('csText').value;
-  try{JSON.parse(csTxt);saveData.m_PlayerSerialize[currentPlayer].m_StateCSData=csTxt;}catch(e){skipped.push('State CS');}
-  const cowTxt=document.getElementById('cowText').value;
-  try{JSON.parse(cowTxt);saveData.m_PlayerSerialize[currentPlayer].m_StateCOWData=cowTxt;}catch(e){skipped.push('State COW');}
-  try{saveData.m_PlayerSerialize[currentPlayer].m_InstData=JSON.parse(document.getElementById('instText').value);}catch(e){skipped.push('InstData');}
+  // write each pane back only when it belongs to this character AND holds
+  // valid JSON (never empty/broken/foreign text)
+  const cur=String(currentPlayer);
+  if(taOwner('csText')===cur){
+    const csTxt=document.getElementById('csText').value;
+    try{JSON.parse(csTxt);saveData.m_PlayerSerialize[currentPlayer].m_StateCSData=csTxt;}catch(e){skipped.push('State CS JSON invalid');}
+  }
+  if(taOwner('cowText')===cur){
+    const cowTxt=document.getElementById('cowText').value;
+    try{JSON.parse(cowTxt);saveData.m_PlayerSerialize[currentPlayer].m_StateCOWData=cowTxt;}catch(e){skipped.push('State COW JSON invalid');}
+  }
+  if(taOwner('instText')===cur){
+    try{saveData.m_PlayerSerialize[currentPlayer].m_InstData=JSON.parse(document.getElementById('instText').value);}catch(e){skipped.push('InstData JSON invalid');}
+  }
   const text=JSON.stringify(saveData);
   document.getElementById('rawText').value=text;
   const bytes=utf16Encode(text);
