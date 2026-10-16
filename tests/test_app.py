@@ -41,10 +41,15 @@ class FlaskSaveTests(unittest.TestCase):
         self.assertIn("Anakrino", d["player_labels"][0])
 
     def test_player_get(self):
+        # this reads the LIVE save file, whose gold changes every time the game
+        # is played, so compare the API result against the file itself rather
+        # than a hardcoded constant
+        raw = gzip.decompress(open(SAVE, "rb").read())
+        on_disk = json.loads(json.loads(raw.decode("utf-16-le"))["m_PlayerSerialize"][0]["m_StateCSData"])
         r = self.client.get(f"/api/save/{self.sid}/player/0")
         self.assertEqual(r.status_code, 200)
         d = r.get_json()
-        self.assertEqual(d["cs"]["m_Gold"]["$content"], 14)
+        self.assertEqual(d["cs"]["m_Gold"]["$content"], on_disk["m_Gold"]["$content"])
 
     def test_cs_replace_and_export(self):
         obj = {"m_Gold": {"$content": 500, "$type": "System.Int32"}}

@@ -202,27 +202,38 @@ function populateSummary(){
   document.getElementById('rawText').value=JSON.stringify(saveData,null,2);
 }
 
+function tryParse(s){try{return JSON.parse(s);}catch(e){return undefined;}}
 function syncCurrentPlayer(){
   if(!saveData) return;
   const p=saveData.m_PlayerSerialize[currentPlayer];
   const cs=document.getElementById('csText').value;
   const cow=document.getElementById('cowText').value;
   const inst=document.getElementById('instText').value;
+  // only write back into the save when the textarea holds valid JSON,
+  // so an empty/broken textarea can never corrupt the file
   try{JSON.parse(cs);p.m_StateCSData=cs;}catch(e){}
   try{JSON.parse(cow);p.m_StateCOWData=cow;}catch(e){}
-  try{JSON.parse(inst);p.m_InstData=JSON.parse(inst);}catch(e){}
-  if(csData) Object.assign(csData, JSON.parse(cs));
-  if(cowData) Object.assign(cowData, JSON.parse(cow));
-  if(instData) instData=JSON.parse(inst);
+  const instObj=tryParse(inst);
+  if(Array.isArray(instObj)){p.m_InstData=instObj;instData=instObj;}
+  const csObj=tryParse(cs); if(csData&&csObj&&typeof csObj==='object') Object.assign(csData,csObj);
+  const cowObj=tryParse(cow); if(cowData&&cowObj&&typeof cowObj==='object') Object.assign(cowData,cowObj);
 }
 
 function loadPlayer(i){
   syncCurrentPlayer();
   currentPlayer=i;
   const p=saveData.m_PlayerSerialize[i];
-  csData=JSON.parse(p.m_StateCSData);
-  cowData=JSON.parse(p.m_StateCOWData);
-  instData=p.m_InstData;
+  // tolerate a damaged save: fall back to empty objects instead of crashing,
+  // and let the user repair the JSON in the Advanced / Raw tab
+  let warn='';
+  let csInvalid=false,cowInvalid=false,instInvalid=false;
+  csData=tryParse(p.m_StateCSData);
+  if(!csData||typeof csData!=='object'){csData={};csInvalid=true;warn+=' State CS JSON is empty/invalid.';}
+  cowData=tryParse(p.m_StateCOWData);
+  if(!cowData||typeof cowData!=='object'){cowData={};cowInvalid=true;warn+=' State COW JSON is empty/invalid.';}
+  instInvalid=!Array.isArray(p.m_InstData);
+  instData=instInvalid?[]:p.m_InstData;
+  if(instInvalid) warn+=' InstData is not a list.';
   const gi=saveData.m_GameInfo||{};
   const names=gi.m_PlayedWith||[];const classes=gi.m_PlayedWithClass||[];const levels=gi.m_PlayedWithLevel||[];
   document.getElementById('v_class').value=i<classes.length?classes[i]:'';
@@ -249,10 +260,11 @@ function loadPlayer(i){
     grid.appendChild(div);
   });
   renderInventory();
-  document.getElementById('csText').value=JSON.stringify(csData,null,2);
-  document.getElementById('cowText').value=JSON.stringify(cowData,null,2);
-  document.getElementById('instText').value=JSON.stringify(instData,null,2);
+  document.getElementById('csText').value=csInvalid?(typeof p.m_StateCSData==='string'?p.m_StateCSData:''):JSON.stringify(csData,null,2);
+  document.getElementById('cowText').value=cowInvalid?(typeof p.m_StateCOWData==='string'?p.m_StateCOWData:''):JSON.stringify(cowData,null,2);
+  document.getElementById('instText').value=instInvalid?(typeof p.m_InstData==='string'?p.m_InstData:''):JSON.stringify(instData,null,2);
   document.getElementById('rawText').value=JSON.stringify(saveData,null,2);
+  if(warn) setStatus('Loaded with warnings:'+warn+' Repair it in the Advanced / Raw tab, then Download .run.');
 }
 
 function switchPlayer(val){loadPlayer(parseInt(val,10));}
@@ -405,18 +417,21 @@ async function downloadSave(){
   if(!saveData){setStatus('No save loaded');return;}
   syncCurrentPlayer();
   // sync current cs/cow/inst text into current player already done
-  try{saveData.m_GameInfo=JSON.parse(document.getElementById('gameInfoText').value);}catch(e){}
-  try{}catch(e){}
-  try{saveData.m_PlayerSerialize[currentPlayer].m_StateCSData=document.getElementById('csText').value;}catch(e){}
-  try{saveData.m_PlayerSerialize[currentPlayer].m_StateCOWData=document.getElementById('cowText').value;}catch(e){}
-  try{saveData.m_PlayerSerialize[currentPlayer].m_InstData=JSON.parse(document.getElementById('instText').value);}catch(e){}
+  try{const o=JSON.parse(document.getElementById('gameInfoText').value);saveData.m_GameInfo=o;}catch(e){}
+  // write the textareas back only when they hold valid JSON (never empty/ broken text)
+  const skipped=[];
+  const csTxt=document.getElementById('csText').value;
+  try{JSON.parse(csTxt);saveData.m_PlayerSerialize[currentPlayer].m_StateCSData=csTxt;}catch(e){skipped.push('State CS');}
+  const cowTxt=document.getElementById('cowText').value;
+  try{JSON.parse(cowTxt);saveData.m_PlayerSerialize[currentPlayer].m_StateCOWData=cowTxt;}catch(e){skipped.push('State COW');}
+  try{saveData.m_PlayerSerialize[currentPlayer].m_InstData=JSON.parse(document.getElementById('instText').value);}catch(e){skipped.push('InstData');}
   const text=JSON.stringify(saveData);
   document.getElementById('rawText').value=text;
   const bytes=utf16Encode(text);
   const cs=new CompressionStream('gzip');
   const blob=await new Response(new Blob([bytes]).stream().pipeThrough(cs)).blob();
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='edited.run';a.click();
-  setStatus('Downloaded edited.run');
+  setStatus('Downloaded edited.run'+(skipped.length?' - left broken JSON untouched: '+skipped.join(', '):''));
 }
 
 document.querySelectorAll('#tabs .nav-link').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();document.querySelectorAll('#tabs .nav-link').forEach(x=>x.classList.remove('active'));a.classList.add('active');['player','game','advanced'].forEach(t=>{const el=document.getElementById('tab-'+t);if(el)el.style.display='none';});const el=document.getElementById('tab-'+a.dataset.tab);if(el)el.style.display='';});});
